@@ -1,302 +1,332 @@
-# 🔗 Introduction to LangChain - Python
+# 🔗 Introduction to LangChain — Python
+### LangChain Academy · Hands-On Course Notes & Projects
 
-## Introduction
-
-Welcome to LangChain Academy's **Introduction to LangChain** course!
-
-This repository is the companion to the course located [HERE](https://academy.langchain.com/courses/foundation-introduction-to-langchain-python).
+> **Course:** [Introduction to LangChain — Python](https://academy.langchain.com/courses/foundation-introduction-to-langchain-python)  
+> **Instructor:** Seán (LangChain Academy)  
+> **Learner:** Muhammad Ali Rehman  
+> **GitHub:** [@marehman-exe](https://github.com/marehman-exe)  
+> **Models used:** `groq:openai/gpt-oss-120b` (Groq free tier)  
+> **Stack:** LangChain · LangGraph · Tavily Search · LangSmith · LangGraph Studio
 
 ---
 
-## 🚀 Setup
+## Overview
+
+This repository contains my complete notes, hands-on notebooks, and finished projects from the **Introduction to LangChain (Python)** course — a 3-module curriculum that takes you from a raw language model invocation all the way to deploying production-grade agents with middleware, human-in-the-loop controls, and a live chat UI.
+
+---
+
+## 📁 Repository Structure
+
+```
+Introduction to LangChain - Python by LangChain/
+│
+├── notebooks/
+│   ├── module-1/          ← Create an Agent (foundations)
+│   │   ├── README.md      ← Detailed lesson notes for Module 1
+│   │   ├── 1.1_foundational_models.ipynb
+│   │   ├── 1.1_prompting.ipynb
+│   │   ├── 1.2_tools.ipynb
+│   │   ├── 1.2_web_search.ipynb
+│   │   ├── 1.3_memory.ipynb
+│   │   ├── 1.4_multimodal_messages.ipynb
+│   │   ├── 1.5_personal_chef.ipynb   ← Project notebook
+│   │   ├── 1.5_personal_chef.py      ← LangGraph Studio entry point
+│   │   ├── langgraph.json
+│   │   └── resources/moon.png
+│   │
+│   ├── module-2/          ← Advanced Agent (MCP, multi-agent)
+│   │   ├── README.md      ← Detailed lesson notes for Module 2
+│   │   └── ...
+│   │
+│   └── module-3/          ← Production-Ready Agent (middleware, HITL)
+│       ├── README.md      ← Detailed lesson notes for Module 3
+│       └── ...
+│
+├── env_utils.py           ← Environment verification script
+├── pyproject.toml         ← Project dependencies
+├── requirements.txt
+├── example.env            ← Template for .env (copy → .env, fill in keys)
+└── README.md              ← This file
+```
+
+---
+
+## 🏗️ Modules at a Glance
+
+| Module | Title | Project | Key Skills |
+|--------|-------|---------|------------|
+| **1** | Create an Agent | Personal Chef Agent | `create_agent`, `@tool`, `InMemorySaver`, multimodal |
+| **2** | Advanced Agent | Destination Wedding Planner | MCP, custom state, multi-agent supervisor |
+| **3** | Production-Ready Agent | Email Assistant | Middleware, HITL, dynamic prompts, LangGraph Studio |
+
+---
+
+## 📚 Module 1 — Create an Agent
+
+> **Full lesson notes:** [`notebooks/module-1/README.md`](notebooks/module-1/README.md)
+
+Module 1 builds the complete foundation of AI agent development from scratch.
+
+### What We Learned
+
+#### Lesson 1.1 — Foundational Models & Prompting
+- Initialise any chat model with `init_chat_model()` — LangChain is **model-agnostic**
+- Swap providers (OpenAI → Anthropic → Groq → Gemini) with a single-line change
+- Key model parameters: `temperature`, `max_tokens`, `timeout`, `max_retries`
+- `create_agent()` — the core LangGraph abstraction used throughout the entire course
+- Stream tokens with `agent.stream()` to reduce perceived latency
+- **Prompt engineering:** few-shot examples, structured output prompts, Pydantic `BaseModel` schemas
+
+#### Lesson 1.2 — Tools & Web Search
+- **ReAct pattern:** Reason → Act (tool call) → Observe (ToolMessage) → Final Answer
+- Define tools with the `@tool` decorator; name = function name, description = docstring
+- Tool call message flow: `HumanMessage` → `AIMessage(tool_calls=[...])` → `ToolMessage` → `AIMessage`
+- **Tavily Search** API for real-time web search — fixes the model knowledge-cutoff limitation
+- **LangSmith tracing** for visualising full agent runs with latency, token usage, tool I/O
+
+#### Lesson 1.3 — Short-Term Memory
+- Without a checkpointer each `invoke()` call starts completely fresh (no memory)
+- `InMemorySaver` from LangGraph persists state snapshots across invocations (in RAM)
+- **Thread IDs** group related invocations into one continuous conversation
+
+#### Lesson 1.4 — Multimodal Messages *(Bonus)*
+- Binary media (images, audio) must be **Base64-encoded** before transmission over HTTP
+- `HumanMessage` with a list of content blocks: `{"type": "text", ...}` + `{"type": "image", ...}`
+- Audio input requires an audio-capable model (`gpt-4o-audio-preview`); Groq free tier is text-only
+
+#### Lesson 1.5 — Project: Personal Chef Agent
+- Combined all Module 1 skills: `create_agent` + `web_search` tool + `InMemorySaver` + `langgraph.json`
+- Bonus: accepts an image of a fridge → picks a recipe from what the agent sees
+- Deployed to **LangGraph Studio** local chat UI via `uv run langgraph dev`
+
+### Project: Personal Chef Agent
+
+A fully conversational AI chef. Give it leftover ingredients → it searches the web via Tavily, returns ranked recipe suggestions with full instructions, and remembers the conversation for follow-up questions.
+
+```
+User Input (text OR image of fridge)
+        │
+        ▼
+  create_agent()
+  ├── Model:   groq:openai/gpt-oss-120b
+  ├── Tools:   web_search (Tavily)
+  ├── Prompt:  "You are a personal chef..."
+  └── Memory:  InMemorySaver + thread_id
+        │
+        ▼
+  Agent calls web_search(query) — may issue multiple queries
+        │
+        ▼
+  Tavily returns live, LLM-friendly web results
+        │
+        ▼
+  Agent synthesises recipe suggestions + full instructions
+        │
+        ▼
+  Streamed response to user
+```
+
+**Sample interaction:**
+```
+User:  "I have leftover chicken and rice. What can I make?"
+Agent: → web_search("chicken and rice leftover recipes")
+       → web_search("quick meals with cooked chicken and rice")
+       → Returns: Chicken Fried Rice, One-Pot Casserole, Asian-inspired skillet
+
+User:  "Give me full instructions for the first recipe"
+Agent: → Remembers conversation → gives complete step-by-step recipe
+```
+
+---
+
+## 📚 Module 2 — Advanced Agent
+
+> **Full lesson notes:** [`notebooks/module-2/README.md`](notebooks/module-2/README.md)
+
+### What We Learned
+
+#### Lesson 2.1 — Model Context Protocol (MCP)
+- MCP is an open protocol (by Anthropic) standardising how LLM apps connect to tools & data sources
+- **USB analogy:** MCP is to AI tools what USB is to hardware — a universal plug
+- Build your own MCP server with `@mcp.tool`, `@mcp.resource`, `@mcp.prompt` decorators
+- Connect to any public MCP server from the community library
+- MCP servers are reusable across any MCP-compatible app (agents, IDEs, chatbots)
+
+#### Lesson 2.2 — Context & State
+- **Runtime context:** typed, immutable data passed to the agent at invocation time (credentials, user IDs)
+- **Custom state:** extend `AgentState` with your own fields; tools update state via `Command(update={...})`
+- Context = input-only; State = mutable memory tracked across the agent's execution
+
+#### Lesson 2.3 — Multi-Agent Systems
+- **Supervisor pattern:** one orchestrator agent delegates sub-tasks to specialist agents
+- Each specialist has a focused role and a narrow tool set
+- The supervisor routes based on the task, collects results, and synthesises a final response
+- Parallelism: multiple specialists can run simultaneously for independent sub-tasks
+
+#### Lesson 2.4 — Project: Destination Wedding Planner
+- Multi-agent system: Supervisor → Flight Finder + Venue Scout + Playlist Curator
+- Supervisor delegates, waits for all three, then produces a final itinerary
+- Uses: MCP for Spotify playlist tool, custom state to carry wedding details, Tavily for flights/venues
+
+---
+
+## 📚 Module 3 — Production-Ready Agent
+
+> **Full lesson notes:** [`notebooks/module-3/README.md`](notebooks/module-3/README.md)
+
+### What We Learned
+
+#### Lesson 3.1 — What is Middleware?
+- Middleware sits between user input and the LLM, intercepting every model call
+- Defined with `@wrap_model_call` — receives `ModelRequest`, returns `ModelResponse`
+- Enables cross-cutting concerns: logging, guardrails, prompt injection, tool gating
+
+#### Lesson 3.2 — Managing Long Conversations
+- Agents accumulate messages → eventually exceeds the model's context window
+- Solutions: trim oldest messages, summarise history, filter by role/type
+- `trim_messages()` from LangChain applies a token budget to the message list
+
+#### Lesson 3.3 — Human In The Loop (HITL)
+- Pause agent execution mid-run and wait for human approval before continuing
+- `HumanInTheLoopMiddleware` intercepts specified tool calls and raises an interrupt
+- Resume with `agent.invoke(Command(resume={"decisions": [{"type": "approve"}]}), ...)`
+
+#### Lesson 3.4 — Dynamic Agents
+- **Dynamic prompts:** swap system prompt at runtime based on context (user tier, locale, mode)
+- **Dynamic tools:** gate which tools are available per invocation (permissions, feature flags)
+- Both use middleware — no agent rebuild required; behaviour changes per request
+
+#### Lesson 3.5 — Project: Email Assistant
+- Combines all Module 3 skills: authentication state, HITL on `send_email`, dynamic prompt swap
+- Three middleware layers stacked: tool gate → prompt swap → HITL approval
+- Deployed to LangGraph Studio
+
+---
+
+## ⚙️ Setup
 
 ### Prerequisites
-
-- The [Chrome](https://www.google.com/chrome/) browser is recommended
-- [git](https://git-scm.com/install/) is recommended
-- A package/project manager: [uv](https://docs.astral.sh/uv/) (recommended) or [pip](https://pypi.org/project/pip/)
-- note: `uv` is also required in Module 2, Lesson 1 to run the MCP server with `uvx`
-- The course requires Python >=3.12, <3.14  If you use `uv`, it will take care of this for you. [More info](#python-virtual-environments)
+- Python 3.12–3.13
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ### Installation
 
-Download the course repository
 ```bash
-# Clone the repo
-git clone --depth 1 https://github.com/langchain-ai/lca-lc-foundations.git
-cd lca-lc-foundations
-```
+# 1. Clone this repo
+git clone https://github.com/marehman-exe/LangChain.git
+cd "LangChain/Introduction to LangChain - Python by LangChain"
 
-Make a copy of example.env
-```bash
-# Create .env file
+# 2. Create your .env from the template
 cp example.env .env
-```
+# Then edit .env and fill in your API keys
 
-Edit the .env file to include the keys below for [Models](#model-providers) and optionally [LangSmith](#getting-started-with-langsmith)
-
-- Get an OpenAI API Key [here](https://openai.com/index/openai-api/).  
-- Optional for Module1/Lesson1, get an Anthropic API Key [here](https://console.anthropic.com) and a Google API Key [here](https://ai.google.dev/gemini-api/docs/quickstart).
-- Optional, Create a [LangSmith](https://smith.langchain.com/) account and API Key.  
-
-```bash
-# Manual installs for checking: uv
-
-# Required
-OPENAI_API_KEY='your_openai_api_key_here'
-TAVILY_API_KEY='your_tavily_api_key_here'
-
-# optional, only used in Module1, Lesson 1 once
-ANTHROPIC_API_KEY='your_anthropic_api_key_here'
-GOOGLE_API_KEY='your_google_api_key_here'
-
-# Optional for evaluation and tracing
-LANGSMITH_API_KEY='your_langsmith_api_key_here'
-# uncomment to set tracing to true when you set up your LangSmith account
-#LANGSMITH_TRACING=true
-LANGSMITH_PROJECT=lca-lc-foundation
-# Uncomment the following if you are on the EU instance:
-#LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com
-```
-
-
-Make a virtual environment and install dependencies. [More info](#python-virtual-environments)
-
-<details open>
-<summary>Using uv (recommended)</summary>
-
-```bash
+# 3. Install dependencies
 uv sync
 ```
 
-</details>
+### Environment Variables
 
-<details>
-<summary>Using pip</summary>
+Copy `example.env` → `.env` and fill in:
 
-```bash
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+```env
+# Required for all modules
+GROQ_API_KEY=your_groq_api_key_here
+TAVILY_API_KEY=your_tavily_api_key_here
+
+# Optional — LangSmith tracing
+LANGSMITH_API_KEY=your_langsmith_api_key_here
+LANGSMITH_TRACING=true
+LANGSMITH_PROJECT=lca-lc-foundation
+
+# Optional — provider alternatives (Module 1 Lesson 1 only)
+OPENAI_API_KEY=your_openai_api_key_here
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-</details>
+Get your API keys:
+- **Groq** (free): https://console.groq.com
+- **Tavily** (free): https://tavily.com
+- **LangSmith** (optional, free): https://smith.langchain.com
 
-### Setup Verification
-
-After completing the Setup section, we recommend you run the following command to verify your environment.
-
-<details open>
-<summary>Using uv</summary>
+### Verify Setup
 
 ```bash
-uv run python env_utils.py
+# PowerShell (Windows)
+$env:PYTHONUTF8 = "1"; uv run python env_utils.py
 ```
 
-</details>
-
-<details>
-<summary>Using pip</summary>
-
-```bash
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-python env_utils.py
-```
-
-</details>
-
-[If the script flags issues, see this section below.](#setup-verification-issues)
-
-### Run Notebooks [More Info](#development-environment)
-
-<details open>
-<summary>Using uv (recommended)</summary>
+### Run Notebooks
 
 ```bash
 uv run jupyter lab
 ```
 
-</details>
-
-<details>
-<summary>Using pip</summary>
+### Run LangGraph Studio (Module 1 & 3 projects)
 
 ```bash
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-jupyter lab
-```
-
-</details>
-
-### Run Studio (optional)
-
-Ensure you are in the notebooks/module-1 or notebooks/module-3 directory
-
- <details open>
-<summary>Using uv (recommended)</summary>
-
-```bash
+# From notebooks/module-1 or notebooks/module-3
+cd notebooks/module-1
 uv run langgraph dev
+# Opens: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
 ```
-
-</details>
-
-<details>
-<summary>Using pip</summary>
-
-```bash
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-langgraph dev
-```
-
-</details>
-
-## 📚 Lessons
-This repository contains three Modules that serve as introductions to many of LangChain's most-used features.
 
 ---
 
-### Module 1: Create Agent
+## 🔑 Key Concepts — Quick Reference
 
-- Foundational models
-- Tools
-- Short-Term Memory
-- Multimodal Messages
-- Project: Personal Chef
+| Concept | What It Is | Module |
+|---------|-----------|--------|
+| `init_chat_model()` | Provider-agnostic model initialisation | 1 |
+| `create_agent()` | Core LangGraph agent abstraction | All |
+| `temperature` | Output randomness (0 = deterministic, 1+ = creative) | 1 |
+| `response_format` | Pydantic schema for typed structured output | 1 |
+| `agent.stream()` | Stream tokens to reduce perceived latency | 1 |
+| `@tool` | Turns a Python function into an agent-callable tool | 1 |
+| ReAct pattern | Reason → Act → Observe loop driving tool-using agents | 1 |
+| `ToolMessage` | Carries a tool's return value back to the agent | 1 |
+| Tavily Search | Real-time web search API for up-to-date information | 1 |
+| LangSmith tracing | Visualise full runs: latency, tokens, tool calls | 1 |
+| `InMemorySaver` | Checkpointer persisting agent state across invocations | 1 |
+| Thread ID | Groups multiple invocations into one conversation | 1 |
+| Base64 encoding | Converts binary media to text for API transmission | 1 |
+| Multimodal messages | Content blocks combining text + image/audio | 1 |
+| `langgraph.json` | Config file pointing LangGraph Studio to your agent | 1 |
+| `langgraph dev` | Starts local LangGraph Studio with chat UI | 1 |
+| MCP | Open protocol standardising LLM-to-tool connections | 2 |
+| Runtime context | Immutable typed data injected at invocation time | 2 |
+| Custom state | Extend `AgentState` with own fields; tools update via `Command` | 2 |
+| Supervisor pattern | Orchestrator delegating to specialist agents | 2 |
+| `@wrap_model_call` | Middleware decorator intercepting every model call | 3 |
+| `trim_messages()` | Trims conversation history to a token budget | 3 |
+| HITL | Human-in-the-loop: pause execution for human approval | 3 |
+| Dynamic prompts | Swap system prompt per request via middleware | 3 |
+| Dynamic tools | Gate available tools per request via middleware | 3 |
 
-### Module 2: Advanced Agent
+---
 
-- Model Context Protocol (MCP)
-- Context and State
-- Multi-Agent Systems
-- Project: Wedding Planner
+## 🛠️ Tech Stack
 
-### Module 3: Production-Ready Agent
+![LangChain](https://img.shields.io/badge/LangChain-≥1.3.10-blue?style=flat-square)
+![LangGraph](https://img.shields.io/badge/LangGraph-≥1.0.3-blue?style=flat-square)
+![Groq](https://img.shields.io/badge/Groq-free_tier-orange?style=flat-square)
+![Tavily](https://img.shields.io/badge/Tavily-search_API-green?style=flat-square)
+![LangSmith](https://img.shields.io/badge/LangSmith-tracing-purple?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.12--3.13-yellow?style=flat-square)
 
-- What is Middleware?
-- Managing Long Conversations
-- Human In The Loop (HITL)
-- Dynamic Agents
-- Project: Email Assistant
-- Bonus: Agent Chat UI
+---
 
-## 📖 Related Resources
+## 📌 Related Projects
 
-### Setup Verification Issues
+Built as standalone portfolio projects from this course:
 
-**What the verification procedure checks:**
-- ✅ Python executable location and version (must be >=3.12, <3.14)
-- ✅ Virtual environment is properly activated
-- ✅ Required packages are installed with correct versions
-- ✅ Packages are in the correct Python version's site-packages
-- ✅ Environment variables (API keys) are properly configured
+| Project | Description | Repo |
+|---------|-------------|------|
+| Personal Chef Agent | Tool-using chef that searches recipes from leftover ingredients | [personal-chef-agent](https://github.com/marehman-exe/personal-chef-agent) |
+| Wedding Planner Agent | Multi-agent coordinator for destination wedding planning | [wedding-planner-agent](https://github.com/marehman-exe/wedding-planner-agent) |
 
-**Configuration Issues and Solutions:**
+---
 
-<details>
-<summary>ImportError when running env_utils.py</summary>
-
-If you see an error like `ModuleNotFoundError: No module named 'dotenv'`, you're likely running Python outside the virtual environment.
-
-**Solution:**
-- Use `uv run python env_utils.py` (recommended), or
-- Activate the virtual environment first:
-  - macOS/Linux: `source .venv/bin/activate`
-  - Windows: `.venv\Scripts\activate`
-
-</details>
-
-<details>
-<summary>Environment Variable Conflicts</summary>
-
-If you see a warning about "ENVIRONMENT VARIABLE CONFLICTS DETECTED", you have API keys set in your system environment that differ from your .env file. Since `load_dotenv()` doesn't override existing variables by default, your system values will be used.
-
-**Solutions:**
-1. Do nothing and accept the system environment variable value
-2. Unset the conflicting system environment variables for this shell session (commands provided in warning)
-3. Use `load_dotenv(override=True)` in your notebooks to force .env values to take precedence
-4. Update your .env file or shell init so the values are in agreement
-
-</details>
-
-<details>
-<summary>LangSmith Tracing Errors</summary>
-
-If you see "LANGSMITH_TRACING is enabled but LANGSMITH_API_KEY still has the example/placeholder value", you need to either:
-1. Set a valid LangSmith API key in your .env file, or
-2. Comment out or set `LANGSMITH_TRACING=false` in your .env file
-
-Note: LangSmith is optional for evaluation and tracing. The course works without it.
-
-</details>
-
-<details>
-<summary>Wrong Python Version</summary>
-
-If you see a warning about Python version not satisfying requirements, you need Python >=3.12 and <3.14.
-
-**Solution:**
-- If using `uv`: Run `uv sync` which will automatically install the correct Python version
-- If using pip: Install Python 3.12 or 3.13 using [pyenv](#python-virtual-environments) or from [python.org](https://www.python.org/downloads/)
-
-</details>
-
-### Python Virtual Environments
-
-Managing your Python version is often best done with virtual environments. This allows you to select a Python version for the course independent of the system Python version.
-
-<details open>
-<summary>Using uv (recommended)</summary>
-
-`uv` will install a version of Python compatible with the versions specified in the `pyproject.toml` in the `.venv` directory when running the `uv sync` specified above. It will use this version when invoking with `uv run`. For additional information, please see [uv](https://docs.astral.sh/uv/).
-</details>
-
-<details>
-<summary>Using pyenv + pip</summary>
-
-If you are using pip instead of uv, you may prefer using pyenv to manage your Python versions. For additional information, please see [pyenv](https://github.com/pyenv/pyenv).
-
-```bash
-pyenv install 3.12
-pyenv local 3.12
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-</details>
-
-### Model Providers
-
-If you don't have an OpenAI API key, you can sign up [here](https://openai.com/index/openai-api/). The course primarily uses gpt-5-nano which is very inexpensive.  If desired, you may also obtain additional API keys for [Anthropic](https://console.anthropic.com) or [Google](https://ai.google.dev/gemini-api/docs/quickstart).
-
-This course has been created using particular models and model providers.  You can use other providers, but you will need to update the API keys in the .env file and make some necessary code changes. LangChain supports many chat model providers. [More Info](https://docs.langchain.com/oss/python/integrations/providers/all_providers).
-
-Tavily is a search provider that returns search results in an LLM-friendly way. They have a generous free tier. [Tavily](https://tavily.com)
-
-### Getting Started with LangSmith
-
-- Create a [LangSmith](https://smith.langchain.com/) account
-- Create a LangSmith API key
-
-<img width="600" alt="LangSmith Dashboard" src="https://github.com/user-attachments/assets/e39b8364-c3e3-4c75-a287-d9d4685caad5" />
-
-<img width="600" alt="LangSmith API Keys" src="https://github.com/user-attachments/assets/2e916b2d-e3b0-4c59-a178-c5818604b8fe" />
-
-- Update the .env file you created with your new LangSmith API Key.
-- Check that LANGSMITH_TRACING is uncommented and set to true.
-
-For more information on LangSmith, see our docs [here](https://docs.langchain.com/langsmith/home).
-
-**Note:** If you enable LangSmith tracing by setting `LANGSMITH_TRACING=true` in your .env file, make sure you have a valid `LANGSMITH_API_KEY` set. The environment verification script (`env_utils.py`) will warn you if tracing is enabled without a valid key.
-
-### Environment Variables
-
-This course uses the [dotenv](https://pypi.org/project/python-dotenv) module to read key-value pairs from the .env file and set them in the environment in the Jupyter notebooks. They do not need to be set globally in your system environment.
-
-**Note:** If you have API keys already set in your system environment, they may conflict with the ones in your .env file. The `env_utils.py` verification script will detect and warn you about such conflicts. By default, `load_dotenv()` does not override existing environment variables.
-
-
-### Development Environment
-
-The course uses [Jupyter](https://jupyter.org/) notebooks. The Jupyter package is installed in the virtual environment and can be run as described above. Jupyter notebooks can also be edited and run in VSCode or other VSCode variants such as Windsurf or Cursor.
+*Course: LangChain Academy — Introduction to LangChain (Python)*  
+*Learner notes by [@marehman-exe](https://github.com/marehman-exe)*
